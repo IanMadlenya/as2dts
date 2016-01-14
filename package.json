@@ -10,8 +10,8 @@
     "test": "node test/runner generate && node test/runner compare",
     "generate": "node test/runner generate",
     "accept": "node test/runner accept",
-    "compile": "tsc --module 'commonjs' --outDir lib --target es5 src/declarations/node.d.ts src/main/parser.ts src/main/emitter.ts src/main/command.ts",
-    "watch": "tsc --module 'commonjs' --outDir lib --target es5 --watch src/declarations/node.d.ts src/main/parser.ts src/main/emitter.ts src/main/command.ts"
+    "compile": "tsc --module commonjs --outDir lib --target es5 src/declarations/node.d.ts src/main/parser.ts src/main/emitter.ts src/main/command.ts",
+    "watch": "tsc --module commonjs --outDir lib --target es5 --watch src/declarations/node.d.ts src/main/parser.ts src/main/emitter.ts src/main/command.ts"
   },
   "keywords": [
     "actionscript",
