@@ -36,6 +36,7 @@ function isKeyWord(text: string): boolean {
 function transformAST(node:Node, parentNode: Node): Node {
     //we don't care about comment
     var newNode=  new Node(
+		node.content(),
         node.kind, 
         node.start,
         node.end,
@@ -682,7 +683,9 @@ function insert(string: string) {
 function consume(string: string, limit: number) {
     var index = data.source.indexOf(string, state.index) + string.length;
     if (index > limit || index < state.index) {
-        throw new Error('invalid consume');
+		console.log("started searching at: " + data.source.substr(state.index));
+		console.log('output:',output);
+        throw new Error('invalid consume ' + JSON.stringify({string: string, index: index, limit: limit, "state": state}, null, 3));
     }
     state.index = index;
 }

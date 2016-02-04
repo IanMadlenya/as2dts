@@ -65,11 +65,13 @@ export function run() {
         var parser = new AS3Parser();
         console.log('compiling \'' + file + '\' ' + number + '/' + length);
         var content = fs.readFileSync(path.resolve(sourceDir, file), 'UTF-8');
-        console.log('parsing');
+        //console.log('parsing');
         var ast = parser.buildAst(path.basename(file), content);
-        console.log('emitting');
+		//console.log(JSON.stringify(ast,null,3));
+        //console.log('emitting');
         (<any>fs).createFileSync(path.resolve(outputDir, file.replace(/.as$/, '.ts')), emitter.emit(ast, content));
         number ++;
     });
 }
 
+//run();

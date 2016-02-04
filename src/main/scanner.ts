@@ -67,7 +67,7 @@ class AS3Scanner {
 
     private inVector: boolean;
     private index: number;
-    private content: string = '';
+    public content: string = '';
 
     /**
      * @return
@@ -456,7 +456,7 @@ class AS3Scanner {
         }
         if (characterToBeScanned == '0') {
             var firstCharacter: string = this.peekChar(1);
-            if (firstCharacter == 'x') {
+            if (firstCharacter == 'x' || firstCharacter == 'X') {
                 return this.scanHex();
             }
         }
@@ -483,9 +483,9 @@ class AS3Scanner {
             buffer = this.content[this.index];
         do {
             char = this.nextChar();
-            buffer +=  char;
+            buffer += char;
         }
-        while (char !== '\n');
+        while (char && char !== '\n');
 
         return new Token(buffer.toString(), this.index);
     }

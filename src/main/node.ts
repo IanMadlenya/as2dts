@@ -1,17 +1,39 @@
 
 class Node {
+	public content:Function;
+	public substr:string;
+	
     constructor (
+		content: string,
         public kind: string, 
-        public start: number,
-        public end: number,
+        public _start: number,
+        public _end: number,
         public text?: string,
         public children?: Node[],
         public parent? :Node
     ) {
+		this.content = function(){ return content; };
         if (!this.children) {
             this.children = []
         }
+		this.updateSubstr();
     }
+	
+	updateSubstr():void {
+		if (this.end >= this.start)
+		{
+			this.substr = this.content().substr(this.start, this.end - this.start);
+		}
+		else
+		{
+			this.substr = "BAD: " + this.content().substr(this.end, this.start - this.end);
+		}
+	}
+	
+	get end():number { return this._end; }
+	set end(e:number) { this._end = e; this.updateSubstr(); }
+	get start():number { return this._start; }
+	set start(s:number) { this._start = s; this.updateSubstr(); }
     
     findChild(type: string): Node {
         for (var i = 0; i< this.children.length;i++) {
