@@ -1,9 +1,10 @@
-
 import Token = require('./token');
 import NodeKind = require('./nodeKind');
 import Operators = require('./operators');
 import KeyWords = require('./keywords');
 import Node = require('./node');
+
+var EMIT_DEFS_ONLY = false;
 
 //Utils
 function assign(target: any, ...items: any[]): any {
@@ -151,17 +152,34 @@ visitors[NodeKind.IDENTIFIER] = emitIdent;
 visitors[NodeKind.XML_LITERAL] = emitXMLLiteral;
 visitors[NodeKind.CONST_LIST] = emitConstList;
 
+var skipBlock:boolean = false;
+var skipInit:boolean = false;
 
-function visitNode(node: Node) {
-    if (!node) {
-        return;
-    }
-    if (visitors.hasOwnProperty(node.kind)) {
-        visitors[node.kind](node);
-    } else {
-        catchup(node.start);
-        visitNodes(node.children);
-    }
+function visitNode(node: Node)
+{
+	if (!node)
+	    return;
+	
+	if (visitors.hasOwnProperty(node.kind))
+	{
+	    visitors[node.kind](node);
+	}
+	else if (skipInit && node.kind === NodeKind.INIT)
+	{
+		skipTo(node.end);
+	}
+	else if (skipBlock && node.kind === NodeKind.BLOCK)
+	{
+	    catchup(node.start);
+		// skip children of block
+        skipTo(node.end);
+        insert('{ }');
+	}
+	else
+	{
+	    catchup(node.start);
+    	visitNodes(node.children);
+	}
 }
 
 function emitPackage(node: Node) {
@@ -242,7 +260,7 @@ function emitInterface(node: Node) {
 function emitFunction(node: Node) {
     emitDeclaration(node);
     enterFunctionScope(node);
-    var rest = node.getChildFrom(NodeKind.MOD_LIST);
+    var rest = node.getChildrenStartingFrom(NodeKind.MOD_LIST);
     exitScope();
     visitNodes(rest);
 }
@@ -295,7 +313,7 @@ function emitSet(node: Node) {
         skipTo(type.end);
     }
     enterFunctionScope(node);
-    visitNodes(node.getChildFrom(NodeKind.TYPE));
+    visitNodes(node.getChildrenStartingFrom(NodeKind.TYPE));
     exitScope();
 }
 
@@ -322,7 +340,9 @@ function emitMethod(node: Node) {
         skipTo(name.end)
     }
     enterFunctionScope(node);
-    visitNodes(node.getChildFrom(NodeKind.NAME));
+	skipBlock = EMIT_DEFS_ONLY;
+    visitNodes(node.getChildrenStartingFrom(NodeKind.NAME));
+	skipBlock = false;
     exitScope();
 }
 
@@ -330,7 +350,9 @@ function emitPropertyDecl(node: Node, isConst = false) {
     emitClassField(node);
     var name = node.findChild(NodeKind.NAME_TYPE_INIT);
     consume(isConst ? 'const': 'var', name.start);
+	skipInit = EMIT_DEFS_ONLY;
     visitNode(name);
+	skipInit = false;
 }
 
 function emitClassField(node: Node) {
@@ -456,7 +478,7 @@ function emitCall(node: Node) {
             }
             skipTo(vector.end);
             insert('>');
-            visitNodes(node.getChildFrom(NodeKind.VECTOR));
+            visitNodes(node.getChildrenStartingFrom(NodeKind.VECTOR));
             return;
         }
 
@@ -483,7 +505,7 @@ function emitRelation(node: Node) {
             insert('<');
             insert(node.lastChild.text);
             insert('>');
-            visitNodes(node.getChildUntil(NodeKind.AS));
+            visitNodes(node.getChildrenUntil(NodeKind.AS));
             catchup(as.start);
             skipTo(node.end);
         } else {

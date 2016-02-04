@@ -48,7 +48,7 @@ class Node {
         return this.children.filter(child => child.kind === type);
     }
     
-    getChildFrom(type: string) {
+    getChildrenStartingFrom(type: string): Node[] {
         var child = this.findChild(type);
         if (!child) {
             return this.children.slice(0)
@@ -58,7 +58,7 @@ class Node {
         }
     }
     
-    getChildUntil(type: string) {
+    getChildrenUntil(type: string): Node[] {
         var child = this.findChild(type);
         if (!child) {
             return this.children.splice(0)
