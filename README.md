@@ -23,5 +23,29 @@ This tool will not magically transform your as3 codebase into perfect typescript
 
 However unlike most attempts that I have seen this tool is based on a true actionscript parser, and so should be able to handle most of as3 constructs and greatly ease the pain of porting a large code base written in as3 to typescript.
 
-To compile and test from source:
-npm run-script compile && npm install -g
+##Command-line help
+
+Compile:
+```
+npm run-script compile
+```
+
+Install on command-line:
+```
+npm install -g
+```
+
+Install debugger:
+```
+npm install -g node-inspector
+```
+
+Start debugging service:
+```
+node-inspector &
+```
+
+Debug:
+```
+node --debug lib/command.js input_path output_path
+```
