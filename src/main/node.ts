@@ -71,6 +71,16 @@ class Node {
     get lastChild(): Node {
         return this.children[this.children.length -1];
     }
+	
+	get subtreeEnd(): number {
+		var i:number = this.children.length;
+		var child:Node = null;
+		while (i-- && !child)
+			child = this.children[i];
+		if (child)
+			return Math.max(this.end, child.subtreeEnd);
+		return this.end;
+	}
 }
 
 export = Node;

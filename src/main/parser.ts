@@ -1211,7 +1211,7 @@ class AS3Parser {
         result.end = result.children.reduce((index: number, child: Node) => {
             return Math.max(index, child ? child.end : 0);
         }, 0);
-		console.log('\n\nparseFunctionSignature()',result,'\n\n');
+		//console.log('\n\nparseFunctionSignature()',result,'\n\n');
         return result;
     }
 

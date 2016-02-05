@@ -39,16 +39,24 @@ export function run() {
         displayHelp();
         process.exit(0);
     }
-    if (process.argv.length !== 4) {
+	
+	var iArg:number = 2;
+	
+	var defsOnly:boolean = false;
+	if (process.argv[iArg] === '--defs-only')
+		defsOnly = true, iArg++;
+	
+    if (process.argv.length - iArg < 2) {
         throw new Error('source dir and output dir are mandatory');
         process.exit(1)
     }
-    var sourceDir = path.resolve(process.cwd(), process.argv[2]);
+	
+    var sourceDir = path.resolve(process.cwd(), process.argv[iArg++]);
     if (!fs.existsSync(sourceDir) || !fs.statSync(sourceDir).isDirectory()) {
         throw new Error('invalid source dir');
     }
     
-    var outputDir = path.resolve(process.cwd(), process.argv[3]);
+    var outputDir = path.resolve(process.cwd(), process.argv[iArg++]);
     if (fs.existsSync(outputDir)) {
         if (!fs.statSync(outputDir).isDirectory()) {
             throw new Error('invalid ouput dir');
@@ -69,9 +77,10 @@ export function run() {
         var ast = parser.buildAst(path.basename(file), content);
 		//console.log(JSON.stringify(ast,null,3));
         //console.log('emitting');
-        (<any>fs).createFileSync(path.resolve(outputDir, file.replace(/.as$/, '.ts')), emitter.emit(ast, content));
+        (<any>fs).createFileSync(path.resolve(outputDir, file.replace(/.as$/, '.ts')), emitter.emit(ast, content, {defsOnly: defsOnly}));
         number ++;
     });
 }
 
-//run();
+if (process['_debugProcess'])
+	run();

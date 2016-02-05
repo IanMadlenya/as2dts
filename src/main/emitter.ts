@@ -4,8 +4,6 @@ import Operators = require('./operators');
 import KeyWords = require('./keywords');
 import Node = require('./node');
 
-var EMIT_DEFS_ONLY = false;
-
 //Utils
 function assign(target: any, ...items: any[]): any {
     return items.reduce(function (target: any, source: any) {
@@ -76,11 +74,11 @@ interface Declaration {
 }
 
 export interface EmitterOptions { 
-    lineSeparator: string;
+	defsOnly?: boolean;
 }
 
 var defaultEmitterOptions = {
-    lineSeparator: '\n'
+	defsOnly: false
 }
 
 var data: {
@@ -166,14 +164,14 @@ function visitNode(node: Node)
 	}
 	else if (skipInit && node.kind === NodeKind.INIT)
 	{
-		skipTo(node.end);
+		skipTo(node.subtreeEnd);
 	}
 	else if (skipBlock && node.kind === NodeKind.BLOCK)
 	{
 	    catchup(node.start);
 		// skip children of block
-        skipTo(node.end);
-        insert('{ }');
+        skipTo(node.subtreeEnd);
+        insert('{ return null as any; }');
 	}
 	else
 	{
@@ -340,7 +338,7 @@ function emitMethod(node: Node) {
         skipTo(name.end)
     }
     enterFunctionScope(node);
-	skipBlock = EMIT_DEFS_ONLY;
+	skipBlock = data.options.defsOnly;
     visitNodes(node.getChildrenStartingFrom(NodeKind.NAME));
 	skipBlock = false;
     exitScope();
@@ -350,7 +348,7 @@ function emitPropertyDecl(node: Node, isConst = false) {
     emitClassField(node);
     var name = node.findChild(NodeKind.NAME_TYPE_INIT);
     consume(isConst ? 'const': 'var', name.start);
-	skipInit = EMIT_DEFS_ONLY;
+	skipInit = data.options.defsOnly;
     visitNode(name);
 	skipInit = false;
 }

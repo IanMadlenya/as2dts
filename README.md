@@ -14,7 +14,7 @@ npm install -g as3-to-typescript
 ##Usage
 
 ```
-as3-to-typescript <sourceDir> <outputDir>
+as3-to-typescript [--defs-only] <sourceDir> <outputDir>
 ```
 
 ##Note
@@ -47,5 +47,5 @@ node-inspector &
 
 Debug:
 ```
-node --debug lib/command.js input_path output_path
+node-debug lib/command.js [--defs-only] input_path output_path
 ```
