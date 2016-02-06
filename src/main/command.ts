@@ -46,9 +46,9 @@ export function run() {
 	if (process.argv[iArg] === '--defs-only')
 		defsOnly = true, iArg++;
 	
-    if (process.argv.length - iArg < 2) {
-        throw new Error('source dir and output dir are mandatory');
-        process.exit(1)
+    if (process.argv.length - iArg != 2) {
+		displayHelp();
+        process.exit(1);
     }
 	
     var sourceDir = path.resolve(process.cwd(), process.argv[iArg++]);

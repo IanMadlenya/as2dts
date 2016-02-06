@@ -42,7 +42,7 @@ npm install -g node-inspector
 
 Start debugging service:
 ```
-node-inspector &
+node-inspector -p 8081 &
 ```
 
 Debug:
