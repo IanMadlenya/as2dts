@@ -13,9 +13,8 @@ class Node {
         public parent? :Node
     ) {
 		this.content = function(){ return content; };
-        if (!this.children) {
+        if (!this.children)
             this.children = []
-        }
 		this.updateSubstr();
     }
 	
@@ -69,17 +68,24 @@ class Node {
     }
     
     get lastChild(): Node {
-        return this.children[this.children.length -1];
+		var child:Node = null;
+		var i:number = this.children.length;
+		while (i-- && !child)
+			child = this.children[i];
+		return child;
     }
 	
 	get subtreeEnd(): number {
-		var i:number = this.children.length;
-		var child:Node = null;
-		while (i-- && !child)
-			child = this.children[i];
+		var child:Node = this.lastChild;
 		if (child)
 			return Math.max(this.end, child.subtreeEnd);
 		return this.end;
+	}
+	
+	findParent(type: string): Node {
+		if (!this.parent || this.parent.kind === type)
+			return this.parent;
+		return this.parent.findParent(type);
 	}
 }
 

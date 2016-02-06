@@ -89,6 +89,7 @@ var data: {
 var state: {
     index: number;
     currentClassName: string;
+	inConstructor: boolean;
     scope: Scope;
     isNew: boolean;
     emitThisForNextIdent: boolean;
@@ -107,13 +108,12 @@ export function emit(ast: Node, source: string, options?: EmitterOptions) {
     state = {
         index: 0,
         currentClassName: '',
+		inConstructor: false,
         scope: null,
         isNew: false,
         emitThisForNextIdent: true
     }
     output = '';
-    
-    
     
     enterScope([]);
     visitNode(transformAST(ast, null));
@@ -150,41 +150,81 @@ visitors[NodeKind.IDENTIFIER] = emitIdent;
 visitors[NodeKind.XML_LITERAL] = emitXMLLiteral;
 visitors[NodeKind.CONST_LIST] = emitConstList;
 
-var skipBlock:boolean = false;
-var skipInit:boolean = false;
-
 function visitNode(node: Node)
 {
 	if (!node)
 	    return;
 	
+	var defsOnly = data.options.defsOnly;
+	
 	if (visitors.hasOwnProperty(node.kind))
 	{
 	    visitors[node.kind](node);
 	}
-	else if (skipInit && node.kind === NodeKind.INIT)
+	else if (defsOnly && node.kind === NodeKind.CONTENT && node.parent.kind !== NodeKind.PACKAGE)
+	{
+		catchup(node.start);
+		skipTo(node.subtreeEnd);
+	}
+	else if (defsOnly && node.kind === NodeKind.NAME && node.findParent(NodeKind.PARAMETER) && (node.parent.findChild(NodeKind.INIT) || state.inConstructor))
+	{
+		catchup(node.subtreeEnd);
+		insert('?');
+	}
+	else if (defsOnly && node.kind === NodeKind.INIT && node.parent.kind === NodeKind.NAME_TYPE_INIT)
 	{
 		skipTo(node.subtreeEnd);
 	}
-	else if (skipBlock && node.kind === NodeKind.BLOCK)
+	else if (defsOnly && node.kind === NodeKind.BLOCK
+			 && (node.parent.kind === NodeKind.FUNCTION || node.parent.kind === NodeKind.GET || node.parent.kind === NodeKind.SET))
 	{
-	    catchup(node.start);
-		// skip children of block
+		// skip children of function block
         skipTo(node.subtreeEnd);
-        insert('{ return null as any; }');
+		if (state.inConstructor)
+		{
+			if (node.findParent(NodeKind.CLASS).findChild(NodeKind.EXTENDS))
+				insert(' { super(); }');
+			else
+				insert(' { }');
+		}
+		else if (node.parent.kind === NodeKind.SET)
+		{
+			insert(' { }');
+		}
+		else
+		{
+	        insert(' { return null as any; }');
+		}
 	}
 	else
 	{
 	    catchup(node.start);
     	visitNodes(node.children);
 	}
+	if (node.kind === NodeKind.REST)
+	{
+		catchup(node.subtreeEnd);
+		insert(":any[]");
+	}
 }
+
+var GLOBAL_MODULE:string = '__global__';
+var globalExports:string[] = [];
 
 function emitPackage(node: Node) {
     catchup(node.start);
     skip(NodeKind.PACKAGE.length);
+	
     insert('module');
+	if (!node.findChild(NodeKind.NAME).text)
+		insert(' ' + GLOBAL_MODULE);
     visitNodes(node.children);
+	
+	catchup(node.subtreeEnd);
+	
+	var name:string;
+	while (name = globalExports.shift())
+		insert('\nimport ' + name + ' = ' + GLOBAL_MODULE + '.' + name + ';');
 }
 
 function emitMeta(node: Node) {
@@ -209,7 +249,6 @@ function emitImport(node: Node) {
 function emitInterface(node: Node) {
     emitDeclaration(node);
 
-
     //we'll catchup the other part
     state.scope.declarations.push({ name: node.findChild(NodeKind.NAME).text });
     var content = node.findChild(NodeKind.CONTENT)
@@ -221,6 +260,7 @@ function emitInterface(node: Node) {
             catchup(node.start);
             if (node.kind === NodeKind.FUNCTION) {
                 skip(8);
+				visitNodes(node.children);
             } else if (node.kind === NodeKind.GET || node.kind === NodeKind.SET) {
                 var name = node.findChild(NodeKind.NAME),
                     paramerterList = node.findChild(NodeKind.PARAMETER_LIST); 
@@ -324,44 +364,65 @@ function emitConstList(node: Node) {
 }
 
 function emitMethod(node: Node) {
-    var name = node.findChild(NodeKind.NAME);
-    if (node.kind !== NodeKind.FUNCTION || name.text !== state.currentClassName) {
-        emitClassField(node);
-        consume('function', name.start);
-        catchup(name.end)
-    } else {
+    var name:Node = node.findChild(NodeKind.NAME);
+	state.inConstructor = node.kind === NodeKind.FUNCTION && name.text === state.currentClassName;
+	if (state.inConstructor)
+	{
         var mods = node.findChild(NodeKind.MOD_LIST);
         if (mods) {
             catchup(mods.start);
         }
         insert('constructor');
         skipTo(name.end)
+	}
+	else
+	{
+        emitClassField(node);
+        consume('function', name.start);
+        catchup(name.end)
     }
     enterFunctionScope(node);
-	skipBlock = data.options.defsOnly;
     visitNodes(node.getChildrenStartingFrom(NodeKind.NAME));
-	skipBlock = false;
     exitScope();
+	state.inConstructor = false;
 }
 
 function emitPropertyDecl(node: Node, isConst = false) {
-    emitClassField(node);
-    var name = node.findChild(NodeKind.NAME_TYPE_INIT);
-    consume(isConst ? 'const': 'var', name.start);
-	skipInit = data.options.defsOnly;
-    visitNode(name);
-	skipInit = false;
+	var names = node.findChildren(NodeKind.NAME_TYPE_INIT);
+	for (var i:number = 0; i < names.length; i++)
+	{
+		var name:Node = names[i];
+		if (i == 0)
+		{
+			emitClassField(node);
+			consume(isConst ? 'const' : 'var', name.start);
+			visitNode(name);
+		}
+		else
+		{
+			insert('; ');
+			emitClassField(node, true);
+			skipTo(name.start);
+			visitNode(name);
+		}
+	}
 }
 
-function emitClassField(node: Node) {
+function emitClassField(node:Node, again:boolean = false):void {
     var mods = node.findChild(NodeKind.MOD_LIST);
     if (mods) {
         catchup(mods.start);
         mods.children.forEach(node => {
             catchup(node.start);
-            if (node.text !== 'private' && node.text !== 'public' && node.text !== 'protected' && node.text !== 'static') {
+            if (node.text === 'private' || node.text === 'public' || node.text === 'protected' || node.text === 'static')
+			{
+				if (again)
+					insert(node.text);
+			}
+			else
+			{
                 commentNode(node, false);
-            }  
+			}
             catchup(node.end);
         });
     }
@@ -379,39 +440,33 @@ function emitDeclaration(node: Node) {
                 insertExport = true;
             }  
             skipTo(node.end);
-        }) 
-        if (insertExport) {
+        });
+		if (insertExport)
+		{
             insert('export');
-        }
+
+			var pkg = node.findParent(NodeKind.PACKAGE);
+			if (pkg && !pkg.findChild(NodeKind.NAME).text)
+				globalExports.push(node.findChild(NodeKind.NAME).text);
+		}
     }
 }
+
+var typeMapping:{[type:string]:string} = {
+	'Array': 'any[]',
+	'Boolean': 'boolean',
+	'Class': 'Function',
+	'int': 'number',
+	'Number': 'number',
+	'String': 'string',
+	'uint': 'number',
+	'*': 'any'
+};
 
 function emitType(node: Node) {
     catchup(node.start);
     skip(node.text.length);
-    var type: string;
-    switch(node.text) {
-        case 'String':
-            type = 'string'
-            break;
-        case 'Boolean': 
-            type= 'boolean'
-            break;
-        case 'Number':
-        case 'int':
-        case 'uint':
-            type = 'number'
-            break;
-        case '*':
-            type = 'any'
-            break;
-        case 'Array':
-            type = 'any[]'
-            break;
-        default:
-            type = node.text;
-    }
-    insert(type);
+	insert(typeMapping[node.text] || node.text);
 }
 
 function emitVector(node: Node) {
@@ -689,7 +744,10 @@ function catchup(index: number) {
 }
 
 function skipTo(index: number) {
-    state.index = index;
+	if (index < 0)
+		state.index = data.source.length;
+	else
+	    state.index = index;
 }
 
 function skip(number: number) {
