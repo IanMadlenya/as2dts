@@ -247,10 +247,11 @@ function emitImport(node: Node) {
 }
 
 function emitInterface(node: Node) {
-    emitDeclaration(node);
+    var exported = emitDeclaration(node);
 
     //we'll catchup the other part
-    state.scope.declarations.push({ name: node.findChild(NodeKind.NAME).text });
+	var name:string = node.findChild(NodeKind.NAME).text;
+    state.scope.declarations.push({ name: name });
     var content = node.findChild(NodeKind.CONTENT)
     var contentsNode = content && content.children;
     var foundVariables: { [name: string]: boolean } = {};
@@ -293,6 +294,9 @@ function emitInterface(node: Node) {
             }
         })
     }
+	catchup(node.subtreeEnd);
+	if (exported)
+		insert('\nexport var ' + name + ':Function;');
 }
 
 function emitFunction(node: Node) {
@@ -428,7 +432,7 @@ function emitClassField(node:Node, again:boolean = false):void {
     }
 }
 
-function emitDeclaration(node: Node) {
+function emitDeclaration(node: Node):boolean {
     catchup(node.start);
     visitNode(node.findChild(NodeKind.META_LIST));
     var mods = node.findChild(NodeKind.MOD_LIST);
@@ -450,6 +454,7 @@ function emitDeclaration(node: Node) {
 				globalExports.push(node.findChild(NodeKind.NAME).text);
 		}
     }
+	return insertExport;
 }
 
 var typeMapping:{[type:string]:string} = {
