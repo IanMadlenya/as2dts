@@ -421,7 +421,7 @@ function emitClassField(node:Node, again:boolean = false):void {
             if (node.text === 'private' || node.text === 'public' || node.text === 'protected' || node.text === 'static')
 			{
 				if (again)
-					insert(node.text);
+					insert(node.text + ' ');
 			}
 			else
 			{
