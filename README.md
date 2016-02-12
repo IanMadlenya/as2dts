@@ -47,5 +47,5 @@ node-inspector -p 8081 &
 
 Debug:
 ```
-node-debug lib/command.js [--defs-only] input_path output_path
+node-debug bin/as3-to-typescript [--defs-only] <sourceDir> <outputDir>
 ```

@@ -35,6 +35,7 @@ function displayHelp() {
 }
 
 export function run() {
+	
     if (process.argv.length === 2) {
         displayHelp();
         process.exit(0);
@@ -81,6 +82,3 @@ export function run() {
         number ++;
     });
 }
-
-if (process['_debugProcess'])
-	run();
