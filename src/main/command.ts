@@ -72,7 +72,7 @@ export function run() {
     var length = files.length;
     files.forEach(function (file) {
         var parser = new AS3Parser();
-        console.log('compiling \'' + file + '\' ' + number + '/' + length);
+        console.log('compiling', file, (number + 1) + '/' + length);
         var content = fs.readFileSync(path.resolve(sourceDir, file), 'UTF-8');
         //console.log('parsing');
         var ast = parser.buildAst(path.basename(file), content);

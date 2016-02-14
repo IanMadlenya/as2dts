@@ -37,6 +37,8 @@ import KeyWords = require('./keywords');
 import Node = require('./node');
 
 
+var AS2TS_COMMENT:RegExp = /\/\*\/\s*([^\/\*]*?)\s*\/\*\//;
+
 var ASDOC_COMMENT: string = "/**";
 
 var MULTIPLE_LINES_COMMENT: string = "/*";
@@ -47,6 +49,9 @@ var SINGLE_LINE_COMMENT: string = "//";
 
 var VECTOR: string = "Vector";
 
+function isTemplate(str:string):boolean {
+	return str && str.charAt(0) === '<' && str.charAt(str.length - 1) === '>';
+}
 
 function startsWith(string: string, prefix: string) {
     return string.indexOf(prefix) === 0;
@@ -168,7 +173,8 @@ function getLineAndCharacterFromPosition(position: number, lineStarts: number[])
  * @author xagnetti
  */
 class AS3Parser {
-
+	private tsReplacement: string;
+	private tsTemplate: string;
     private currentAsDoc: Node;
     private currentFunctionNode: Node;
     private currentMultiLineComment: Node;
@@ -198,17 +204,38 @@ class AS3Parser {
     
     
 
-
-    private nextToken(ignoreDocumentation: boolean= false): void {
+	/**
+	 * @param ignoreDocumentation skip over documentation tokens
+     * @param allowNewLine Get the next token Skip comments but keep newlines.
+     *                     We need this option for beeing able to decide if a returnStatement has an expression.
+	 */
+    private nextToken(ignoreDocumentation: boolean= false, allowNewLine:boolean = false): void {
         do {
-            if (ignoreDocumentation) {
-                this.nextTokenIgnoringDocumentation();
+            this.tok = this.scn.nextToken();
+
+            if (this.tok == null) {
+                throw new Error(this.fileName)//TODO NullTokenException(fileName);
             }
-            else {
-                this.nextTokenAllowNewLine();
+            if (this.tok.text == null) {
+                throw new Error(this.fileName)//TODO throw new NullTokenException(fileName);
             }
+			
+			var as2ts = AS2TS_COMMENT.exec(this.tok.text);
+			if (as2ts)
+			{
+				var ts = as2ts[1];
+				if (isTemplate(ts))
+					this.tsTemplate = ts;
+				else
+					this.tsReplacement = ts;
+			}
         }
-        while (this.tok.text === NEW_LINE);
+        while (
+			as2ts
+			|| startsWith(this.tok.text, SINGLE_LINE_COMMENT)
+			|| (!allowNewLine && this.tok.text === NEW_LINE)
+			|| (ignoreDocumentation && startsWith(this.tok.text, MULTIPLE_LINES_COMMENT))
+		);
     }
     
     private tryParse<T>(func: () => T): T {
@@ -271,7 +298,7 @@ class AS3Parser {
     private parseCompilationUnit(): Node {
         var result: Node = new Node(this.scn.content, NodeKind.COMPILATION_UNIT, -1, -1);
 
-        this.nextTokenIgnoringDocumentation();
+        this.nextToken(true);
         if (this.tokIs(KeyWords.PACKAGE)) {
             result.children.push(this.parsePackage());
         }
@@ -367,7 +394,7 @@ class AS3Parser {
             }
             else {
                 modifiers.push(this.tok);
-                this.nextTokenIgnoringDocumentation();
+                this.nextToken(true);
             }
         }
         if (result.lastChild) { result.end = result.lastChild.end }
@@ -393,7 +420,7 @@ class AS3Parser {
             return this.parseEncapsulatedExpression();
         } else if (this.tok.text === 'Vector') {
             return this.parseVector();
-        } else if (this.tokIs(Operators.INFERIOR)) {
+        } else if (this.tokIs(Operators.LESSTHAN)) {
             var res = this.tryParse(() => this.parseShortVector());
             if (res) {
                 return res;
@@ -635,13 +662,6 @@ class AS3Parser {
         while (startsWith(this.tok.text, SINGLE_LINE_COMMENT));
     }
 
-    private nextTokenIgnoringDocumentation(): void {
-        do {
-            this.nextToken();
-        }
-        while (startsWith(this.tok.text, MULTIPLE_LINES_COMMENT));
-    }
-
     private parseAdditiveExpression(): Node {
         var result: Node = new Node(this.scn.content, NodeKind.ADD, this.tok.index, this.tok.end, null, [this.parseMultiplicativeExpression()]);
         while (this.tokIs(Operators.PLUS) || this.tokIs(Operators.PLUS_AS2) || this.tokIs(Operators.MINUS)) {
@@ -826,9 +846,9 @@ class AS3Parser {
             this.currentMultiLineComment = null;
         }
 
-        var index = this.tok.index,
-            name = this.parseQualifiedName(true)
-        result.children.push(new Node(this.scn.content, NodeKind.NAME, index, index + name.length, name));
+		var index = this.tok.index;
+		
+        result.children.push(this.parseQualifiedName(NodeKind.NAME, true));
 
         result.children.push(this.convertMeta(meta));
         result.children.push(this.convertModifiers(modifier));
@@ -838,9 +858,7 @@ class AS3Parser {
         do {
             if (this.tokIs(KeyWords.EXTENDS)) {
                 this.nextToken(true); // extends
-                index = this.tok.index;
-                name = this.parseQualifiedName(false);
-                result.children.push(new Node(this.scn.content, NodeKind.EXTENDS, index, index + name.length, name));
+                result.children.push(this.parseQualifiedName(NodeKind.EXTENDS, false));
             }
             else if (this.tokIs(KeyWords.IMPLEMENTS)) {
                 result.children.push(this.parseImplementsList());
@@ -1023,9 +1041,9 @@ class AS3Parser {
         var result: Node = new Node(this.scn.content, NodeKind.EQUALITY, this.tok.index, -1, null, [this.parseRelationalExpression()]);
         while (
             this.tokIs(Operators.DOUBLE_EQUAL) || this.tokIs(Operators.DOUBLE_EQUAL_AS2) ||
-            this.tokIs(Operators.STRICTLY_EQUAL) || this.tokIs(Operators.NON_EQUAL) ||
-            this.tokIs(Operators.NON_EQUAL_AS2_1) || this.tokIs(Operators.NON_EQUAL_AS2_2) ||
-            this.tokIs(Operators.NON_STRICTLY_EQUAL)
+            this.tokIs(Operators.STRICTLY_EQUAL) || this.tokIs(Operators.NOT_EQUAL) ||
+            this.tokIs(Operators.NOT_EQUAL_AS2_1) || this.tokIs(Operators.NOT_EQUAL_AS2_2) ||
+            this.tokIs(Operators.NOT_STRICTLY_EQUAL)
             ) {
             result.children.push(new Node(this.scn.content, NodeKind.OP, this.tok.index, this.tok.end, this.tok.text));
             this.nextToken(true);
@@ -1243,14 +1261,10 @@ class AS3Parser {
     private parseImplementsList(): Node {
         this.consume(KeyWords.IMPLEMENTS);
         var result: Node = new Node(this.scn.content, NodeKind.IMPLEMENTS_LIST, this.tok.index, -1);
-        var index = this.tok.index;
-        var name = this.parseQualifiedName(true);
-        result.children.push(new Node(this.scn.content, NodeKind.IMPLEMENTS, index, index + name.length, name));
+        result.children.push(this.parseQualifiedName(NodeKind.IMPLEMENTS, true));
         while (this.tokIs(Operators.COMMA)) {
             this.nextToken(true);
-            var index = this.tok.index;
-            var name = this.parseQualifiedName(true);
-            result.children.push(new Node(this.scn.content, NodeKind.IMPLEMENTS, index, index + name.length, name));
+            result.children.push(this.parseQualifiedName(NodeKind.IMPLEMENTS, true));
         }
         return result;
     }
@@ -1333,21 +1347,18 @@ class AS3Parser {
             result.children.push(this.currentMultiLineComment);
             this.currentMultiLineComment = null;
         }
-        var name = this.parseQualifiedName(true);
-        result.children.push(new Node(this.scn.content, NodeKind.NAME, this.tok.index, this.tok.index + name.length, name));
+        result.children.push(this.parseQualifiedName(NodeKind.NAME, true));
 
         result.children.push(this.convertMeta(meta));
         result.children.push(this.convertModifiers(modifier));
 
         if (this.tokIs(KeyWords.EXTENDS)) {
             this.nextToken(true); // extends
-            name = this.parseQualifiedName(false);
-            result.children.push(new Node(this.scn.content, NodeKind.EXTENDS, this.tok.index, this.tok.index + name.length, name));
+            result.children.push(this.parseQualifiedName(NodeKind.EXTENDS, false));
         }
         while (this.tokIs(Operators.COMMA)) {
             this.nextToken(true); // comma
-            name = this.parseQualifiedName(false);
-            result.children.push(new Node(this.scn.content, NodeKind.EXTENDS, this.tok.index, this.tok.index + name.length, name));
+            result.children.push(this.parseQualifiedName(NodeKind.EXTENDS, false));
         }
         this.consume(Operators.LEFT_CURLY_BRACKET);
         result.children.push(this.parseInterfaceContent());
@@ -1612,31 +1623,44 @@ class AS3Parser {
      * 
      * @throws TokenException
      */
-    private parseQualifiedName(skipPackage: boolean): string {
-        var buffer = ''
+    private parseQualifiedName(kind:string, skipPackage:boolean): Node {
+		var index = this.tok.index;
+        var buffer = '';
+		var tsReplacement = this.tsReplacement;
+		this.tsReplacement = null;
 
         buffer += this.tok.text;
+		var nameEnd = this.tok.end;
         this.nextToken(true);
+		
         while (this.tokIs(Operators.DOT) || this.tokIs(Operators.DOUBLE_COLON)) {
             buffer += this.tok.text;
             this.nextToken(true);
+			
             buffer += this.tok.text;
+			nameEnd = this.tok.end;
             this.nextToken(true); // name
         }
 
-        if (skipPackage) {
-            return buffer.substring(buffer.lastIndexOf(Operators.DOT) + 1);
-        }
-        return buffer;
+		if (tsReplacement)
+			buffer = tsReplacement;
+        else if (skipPackage)
+            buffer = buffer.substring(buffer.lastIndexOf(Operators.DOT) + 1);
+		
+		if (this.tsTemplate)
+			buffer += this.tsTemplate;
+		this.tsTemplate = null;
+        
+		return new Node(this.scn.content, kind, index, nameEnd, buffer);
     }
 
     private parseRelationalExpression(): Node {
         var result: Node = new Node(this.scn.content, NodeKind.RELATION, this.tok.index, -1, null, [this.parseShiftExpression()]);
-        while (this.tokIs(Operators.INFERIOR)
-            || this.tokIs(Operators.INFERIOR_AS2) || this.tokIs(Operators.INFERIOR_OR_EQUAL)
-            || this.tokIs(Operators.INFERIOR_OR_EQUAL_AS2) || this.tokIs(Operators.SUPERIOR)
-            || this.tokIs(Operators.SUPERIOR_AS2) || this.tokIs(Operators.SUPERIOR_OR_EQUAL)
-            || this.tokIs(Operators.SUPERIOR_OR_EQUAL_AS2) || this.tokIs(KeyWords.IS) || this.tokIs(KeyWords.IN)
+        while (this.tokIs(Operators.LESSTHAN)
+            || this.tokIs(Operators.LESSTHAN_AS2) || this.tokIs(Operators.LESSTHAN_EQUAL)
+            || this.tokIs(Operators.LESSTHAN_EQUAL_AS2) || this.tokIs(Operators.GREATERTHAN)
+            || this.tokIs(Operators.GREATERTHAN_AS2) || this.tokIs(Operators.GREATERTHAN_EQUAL)
+            || this.tokIs(Operators.GREATERTHAN_EQUAL_AS2) || this.tokIs(KeyWords.IS) || this.tokIs(KeyWords.IN)
             && !this.isInFor || this.tokIs(KeyWords.AS) || this.tokIs(KeyWords.INSTANCE_OF)) {
             if (!this.tokIs(KeyWords.AS)) {
                 result.children.push(new Node(this.scn.content, NodeKind.OP, this.tok.index, this.tok.end, this.tok.text));
@@ -1851,9 +1875,7 @@ class AS3Parser {
             result = this.parseVector();
         }
         else {
-            var index = this.tok.index,
-                name = this.parseQualifiedName(true);
-            result = new Node(this.scn.content, NodeKind.TYPE, index, index + name.length, name);
+            result = this.parseQualifiedName(NodeKind.TYPE, true);
             // this.nextToken( true );
         }
         return result;
@@ -1971,16 +1993,16 @@ class AS3Parser {
 
         result.children.push(this.parseType());
 
-        result.end = this.consume(Operators.SUPERIOR).end;
+        result.end = this.consume(Operators.GREATERTHAN).end;
 
         return result;
     }
     
     private parseShortVector(): Node {
         var vector: Node = new Node(this.scn.content, NodeKind.VECTOR, this.tok.index, -1, "");
-        this.consume(Operators.INFERIOR);
+        this.consume(Operators.LESSTHAN);
         vector.children.push(this.parseType());
-        vector.end = this.consume(Operators.SUPERIOR).end;
+        vector.end = this.consume(Operators.GREATERTHAN).end;
         
         var arrayLiteral = this.parseArrayLiteral()
         
@@ -2043,7 +2065,7 @@ class AS3Parser {
             if (modifiers != null) {
                 modifiers.push(this.tok);
             }
-            this.nextTokenIgnoringDocumentation();
+            this.nextToken(true);
         }
     }
 	

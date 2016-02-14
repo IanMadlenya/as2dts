@@ -141,7 +141,10 @@ visitors[NodeKind.INTERFACE] = emitInterface;
 visitors[NodeKind.CLASS] = emitClass;
 visitors[NodeKind.VECTOR] = emitVector;
 visitors[NodeKind.SHORT_VECTOR] = emitShortVector;
-visitors[NodeKind.TYPE] = emitType;
+visitors[NodeKind.TYPE] = emitNodeText;
+visitors[NodeKind.NAME] = emitNodeText;
+visitors[NodeKind.EXTENDS] = emitNodeText;
+visitors[NodeKind.IMPLEMENTS] = emitNodeText;
 visitors[NodeKind.CALL] = emitCall;
 visitors[NodeKind.NEW] = emitNew;
 visitors[NodeKind.RELATION] = emitRelation;
@@ -156,23 +159,21 @@ function visitNode(node: Node)
 	    return;
 	
 	var defsOnly = data.options.defsOnly;
-	
-	if (visitors.hasOwnProperty(node.kind))
+	if (defsOnly && node.kind === NodeKind.CONTENT && node.parent.kind !== NodeKind.PACKAGE)
 	{
-	    visitors[node.kind](node);
-	}
-	else if (defsOnly && node.kind === NodeKind.CONTENT && node.parent.kind !== NodeKind.PACKAGE)
-	{
+		// skip anything outside a package block
 		catchup(node.start);
 		skipTo(node.subtreeEnd);
 	}
 	else if (defsOnly && node.kind === NodeKind.NAME && node.findParent(NodeKind.PARAMETER) && (node.parent.findChild(NodeKind.INIT) || state.inConstructor))
 	{
-		catchup(node.subtreeEnd);
+		// denote optional parameters
+		emitNodeText(node);
 		insert('?');
 	}
 	else if (defsOnly && node.kind === NodeKind.INIT && node.parent.kind === NodeKind.NAME_TYPE_INIT)
 	{
+		// skip default values
 		skipTo(node.subtreeEnd);
 	}
 	else if (defsOnly && node.kind === NodeKind.BLOCK
@@ -195,6 +196,10 @@ function visitNode(node: Node)
 		{
 	        insert(' { return null as any; }');
 		}
+	}
+	else if (visitors.hasOwnProperty(node.kind))
+	{
+	    visitors[node.kind](node);
 	}
 	else
 	{
@@ -273,7 +278,7 @@ function emitInterface(node: Node) {
                         skipTo(paramerterList.end);
                         var type = node.findChild(NodeKind.TYPE);
                         if (type) {
-                            emitType(type);
+                            emitNodeText(type);
                         }
                     } else if (node.kind === NodeKind.SET) {
                         var setParam = paramerterList
@@ -281,7 +286,7 @@ function emitInterface(node: Node) {
                         skipTo(setParam.findChild(NodeKind.NAME).end)
                         var type = setParam.findChild(NodeKind.TYPE);
                         if (type) {
-                            emitType(type);
+                            emitNodeText(type);
                         }
                         skipTo(node.end);
                     }
@@ -310,7 +315,8 @@ function emitFunction(node: Node) {
 function emitClass(node: Node) {
     emitDeclaration(node);
     var name = node.findChild(NodeKind.NAME);
-    state.currentClassName = name.text;
+    state.currentClassName = name.text.split('<')[0];
+	visitNode(name);
     var content = node.findChild(NodeKind.CONTENT)
     var contentsNode = content && content.children;
     if (contentsNode) {
@@ -344,7 +350,11 @@ function emitClass(node: Node) {
 
 
 function emitSet(node: Node) {
-    emitClassField(node);
+    if (!emitClassField(node))
+	{
+		skipTo(node.subtreeEnd);
+		return;
+	}
     var name = node.findChild(NodeKind.NAME);
     consume('function', name.start);
     var params = node.findChild(NodeKind.PARAMETER_LIST)
@@ -379,12 +389,16 @@ function emitMethod(node: Node) {
         insert('constructor');
         skipTo(name.end)
 	}
-	else
+	else if (emitClassField(node))
 	{
-        emitClassField(node);
         consume('function', name.start);
         catchup(name.end)
     }
+	else
+	{
+		skipTo(node.subtreeEnd);
+		return;
+	}
     enterFunctionScope(node);
     visitNodes(node.getChildrenStartingFrom(NodeKind.NAME));
     exitScope();
@@ -393,12 +407,16 @@ function emitMethod(node: Node) {
 
 function emitPropertyDecl(node: Node, isConst = false) {
 	var names = node.findChildren(NodeKind.NAME_TYPE_INIT);
+	if (!emitClassField(node))
+	{
+		skipTo(node.subtreeEnd);
+		return;
+	}
 	for (var i:number = 0; i < names.length; i++)
 	{
 		var name:Node = names[i];
 		if (i == 0)
 		{
-			emitClassField(node);
 			consume(isConst ? 'const' : 'var', name.start);
 			visitNode(name);
 		}
@@ -412,10 +430,17 @@ function emitPropertyDecl(node: Node, isConst = false) {
 	}
 }
 
-function emitClassField(node:Node, again:boolean = false):void {
+function emitClassField(node:Node, again:boolean = false):boolean {
     var mods = node.findChild(NodeKind.MOD_LIST);
     if (mods) {
         catchup(mods.start);
+		if (data.options.defsOnly
+			&& (mods.findChild(NodeKind.MODIFIER, 'private')
+				|| mods.findChild(NodeKind.MODIFIER, 'protected')
+				|| mods.findChild(NodeKind.MODIFIER, 'internal')))
+		{
+			return false;
+		}
         mods.children.forEach(node => {
             catchup(node.start);
             if (node.text === 'private' || node.text === 'public' || node.text === 'protected' || node.text === 'static')
@@ -430,6 +455,7 @@ function emitClassField(node:Node, again:boolean = false):void {
             catchup(node.end);
         });
     }
+	return true;
 }
 
 function emitDeclaration(node: Node):boolean {
@@ -468,10 +494,12 @@ var typeMapping:{[type:string]:string} = {
 	'*': 'any'
 };
 
-function emitType(node: Node) {
+function emitNodeText(node: Node) {
     catchup(node.start);
-    skip(node.text.length);
-	insert(typeMapping[node.text] || node.text);
+    skipTo(node.end);
+	insert(' ');
+	insert(typeMapping.hasOwnProperty(node.text) ? typeMapping[node.text] : node.text);
+	insert(' ');
 }
 
 function emitVector(node: Node) {
@@ -479,7 +507,7 @@ function emitVector(node: Node) {
     var type = node.findChild(NodeKind.TYPE);
     if (type) {
         skipTo(type.start);
-        emitType(type);
+        emitNodeText(type);
         insert('[]');
     } else {
         insert('any[]');
@@ -493,7 +521,7 @@ function emitShortVector(node: Node) {
     insert('Array');
     var type = vector.findChild(NodeKind.TYPE);
     if(type) {
-        emitType(type);
+        emitNodeText(type);
     } else {
         insert('any');
     }
@@ -530,7 +558,7 @@ function emitCall(node: Node) {
             var type = vector.findChild(NodeKind.TYPE);
             if (type) {
                 skipTo(type.start);
-                emitType(type);
+                emitNodeText(type);
             } else {
                 insert('any');
             }

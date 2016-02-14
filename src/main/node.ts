@@ -34,10 +34,10 @@ class Node {
 	get start():number { return this._start; }
 	set start(s:number) { this._start = s; this.updateSubstr(); }
     
-    findChild(type: string): Node {
+    findChild(type: string, text?: string): Node {
         for (var i = 0; i< this.children.length;i++) {
-            if (this.children[i].kind === type) {
-                return this.children[i]
+            if (this.children[i].kind === type && (!text || this.children[i].text === text)) {
+                return this.children[i];
             }
         }
         return null;
@@ -86,6 +86,19 @@ class Node {
 		if (!this.parent || this.parent.kind === type)
 			return this.parent;
 		return this.parent.findParent(type);
+	}
+	
+	findDescendant(matcher:(node:Node)=>boolean) {
+		for (var i = 0; i < this.children.length; i++)
+		{
+			var child = this.children[i];
+			if (child && matcher(child))
+				return child;
+			child = child.findDescendant(matcher);
+			if (child)
+				return child;
+		}
+		return null;
 	}
 }
 
