@@ -620,6 +620,15 @@ class AS3Parser {
         
         var name: Node = new Node(this.scn.content, NodeKind.NAME, this.tok.index, this.tok.end, this.tok.text);
         this.nextToken(true); // name
+		
+		// append template type if present
+		if (this.tsTemplate)
+		{
+			name.text += this.tsTemplate;
+			name.end = this.tok.index;
+		}
+		this.tsTemplate = null;
+		
         var params: Node = this.parseParameterList();
         var returnType: Node = this.parseOptionalType();
         return [type, name, params, returnType];
@@ -1584,6 +1593,13 @@ class AS3Parser {
             this.nextToken(true); // ...
             var rest: Node = new Node(this.scn.content, NodeKind.REST, index, this.tok.end, this.tok.text);
             this.nextToken(true); // rest
+			
+			// tsReplacement or tsTemplate may appear after ...rest
+			var type:string = this.tsReplacement || 'Array' + (this.tsTemplate || '');
+			rest.children.push(new Node(this.scn.content, NodeKind.TYPE, rest.end, rest.end, type));
+			this.tsReplacement = null;
+			this.tsTemplate = null;
+			
             result.children.push(rest);
         }
         else {

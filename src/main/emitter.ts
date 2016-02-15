@@ -152,6 +152,7 @@ visitors[NodeKind.OP] = emitOp;
 visitors[NodeKind.IDENTIFIER] = emitIdent;
 visitors[NodeKind.XML_LITERAL] = emitXMLLiteral;
 visitors[NodeKind.CONST_LIST] = emitConstList;
+visitors[NodeKind.REST] = emitRest;
 
 function visitNode(node: Node)
 {
@@ -206,15 +207,20 @@ function visitNode(node: Node)
 	    catchup(node.start);
     	visitNodes(node.children);
 	}
-	if (node.kind === NodeKind.REST)
-	{
-		catchup(node.subtreeEnd);
-		insert(":any[]");
-	}
 }
 
 var GLOBAL_MODULE:string = '__global__';
 var globalExports:string[] = [];
+
+function emitRest(node:Node) {
+	// emit "...rest"
+	catchup(node.end);
+	
+	insert(':');
+	
+	// emit type
+	visitNodes(node.children);
+}
 
 function emitPackage(node: Node) {
     catchup(node.start);
@@ -301,7 +307,7 @@ function emitInterface(node: Node) {
     }
 	catchup(node.subtreeEnd);
 	if (exported)
-		insert('\nexport var ' + name + ':Function;');
+		insert('\nexport var ' + name + ':new(..._:any[])=>' + name + ';');
 }
 
 function emitFunction(node: Node) {
@@ -392,7 +398,7 @@ function emitMethod(node: Node) {
 	else if (emitClassField(node))
 	{
         consume('function', name.start);
-        catchup(name.end)
+		emitNodeText(name);
     }
 	else
 	{
@@ -486,7 +492,7 @@ function emitDeclaration(node: Node):boolean {
 var typeMapping:{[type:string]:string} = {
 	'Array': 'any[]',
 	'Boolean': 'boolean',
-	'Class': 'Function',
+	'Class': 'new(..._:any[])=>any',
 	'int': 'number',
 	'Number': 'number',
 	'String': 'string',
