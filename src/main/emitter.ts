@@ -751,6 +751,7 @@ function findDefInScope(text: string) {
 
 function commentNode(node: Node, catchSemi:boolean) {
     insert('/*');
+	var start = output.length;
     catchup(node.end);
     var index = state.index;
     if (catchSemi) {
@@ -769,6 +770,8 @@ function commentNode(node: Node, catchSemi:boolean) {
             index++;
         }
     }
+	// disable nested block comments
+	output = output.substr(0, start) + output.substr(start).split('*').join(' * ');
     insert('*/'); 
 }
 
