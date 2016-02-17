@@ -299,9 +299,14 @@ class AS3Parser {
         var result: Node = new Node(this.scn.content, NodeKind.COMPILATION_UNIT, -1, -1);
 
         this.nextToken(true);
-        if (this.tokIs(KeyWords.PACKAGE)) {
+        if (this.tokIs(KeyWords.PACKAGE))
+		{
             result.children.push(this.parsePackage());
         }
+		else
+		{
+			throw new Error('"package" is expected to be the first token in a file');
+		}
         result.children.push(this.parsePackageContent());
         return result;
     }
