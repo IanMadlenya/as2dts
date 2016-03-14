@@ -1,10 +1,10 @@
 {
-  "name": "as3-to-typescript",
-  "version": "0.1.1",
-  "description": "convert as3 code base to typescript",
+  "name": "as2dts",
+  "version": "0.2.0",
+  "description": "A command line tool that converts ActionScript 3 classes and interfaces to TypeScript definitions (d.ts files)",
   "main": "index.js",
   "bin": {
-    "as3-to-typescript": "./bin/as3-to-typescript"
+    "as2dts": "./bin/as2dts"
   },
   "scripts": {
     "test": "node test/runner generate && node test/runner compare",
@@ -21,12 +21,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git://github.com/fdecampredon/as3-to-typescript.git"
+    "url": "git://github.com/WeaveTeam/as2dts.git"
   },
   "bugs": {
-    "url": "https://github.com/fdecampredon/as3-to-typescript/issues"
+    "url": "https://github.com/WeaveTeam/as2dts/issues"
   },
-  "author": "François de Campredon <francois.de.campredon@gmail.com>",
+  "author": "Weave Team <npm@iweave.com>",
   "licenses" : {
     "type": "Apache",
     "url": "http://www.apache.org/licenses/LICENSE-2.0.html"

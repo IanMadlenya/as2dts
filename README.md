@@ -1,4 +1,4 @@
-#as3-to-typescript
+#as2dts
 
 > A tool that helps porting as3 codebase to typescript
 
@@ -8,13 +8,13 @@
 Install this module with npm: 
 
 ```
-npm install -g as3-to-typescript
+npm install -g as2dts
 ```
 
 ##Usage
 
 ```
-as3-to-typescript [--defs-only] <sourceDir> <outputDir>
+as2dts [--defs-only] <sourceDir> <outputDir>
 ```
 
 ##Note
@@ -47,5 +47,5 @@ node-inspector -p 8081 &
 
 Debug:
 ```
-node-debug bin/as3-to-typescript [--defs-only] <sourceDir> <outputDir>
+node-debug bin/as2dts [--defs-only] <sourceDir> <outputDir>
 ```
