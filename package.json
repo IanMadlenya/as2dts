@@ -20,10 +20,6 @@
     "compiler"
   ],
   "repository": "WeaveTeam/as2dts",
-  "bugs": {
-    "url": "https://github.com/WeaveTeam/as2dts/issues"
-  },
-  "author": "Weave Team <npm@iweave.com>",
   "licenses" : {
     "type": "Apache",
     "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
