@@ -7,6 +7,7 @@
     "as2dts": "./bin/as2dts"
   },
   "scripts": {
+    "prepublish": "npm run compile",
     "test": "node test/runner generate && node test/runner compare",
     "generate": "node test/runner generate",
     "accept": "node test/runner accept",
