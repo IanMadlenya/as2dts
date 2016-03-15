@@ -1,6 +1,35 @@
 #as2dts
 
-> A tool that helps porting as3 codebase to typescript
+A command-line tool that converts ActionScript 3 classes and interfaces to TypeScript definitions. This tool can be used along with FlexJS to provide TypeScript definitions to your ActionScript libraries that have been cross-compiled to JavaScript.
+
+This tool is a work-in-progress and currently requires running TypeScript separately to generate the .d.ts file for an ActionScript library.  This step will be automated in the future, but in the meantime you can create a tsconfig.json as follows:
+
+`tsconfig.json`:
+
+```
+{
+  "compilerOptions": {
+    "noImplicitAny": true,
+    "module": "system",
+    "declaration": true,
+    "target": "es6",
+    "outFile": "foobar.js"
+  },
+  "exclude": ["foobar.d.ts"]
+}
+```
+
+#Steps:
+
+* Install npm
+* Run `npm install -g typescript`
+* Run `npm install -g as2dts`
+* Create `tsconfig.json` in a new folder (example: `/path/to/foo/`)
+* Run `as2dts --defs-only /path/to/as3/src /path/to/foo/src && tsc -d -p /path/to/foo`
+* Copy the resulting file `/path/to/foo/foo.d.ts` into your TypeScript project
+
+---------------------------------
+#Old readme below
 
 
 ##Installation
