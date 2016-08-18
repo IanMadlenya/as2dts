@@ -61,8 +61,7 @@ export function run() {
     if (fs.existsSync(outputDir)) {
         if (!fs.statSync(outputDir).isDirectory()) {
             throw new Error('invalid ouput dir');
-            process.exit(1)
-        } 
+        }
         rimraf.sync(outputDir);
     }
     fs.mkdirSync(outputDir);

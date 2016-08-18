@@ -1,6 +1,6 @@
 {
   "name": "as2dts",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "A command line tool that converts ActionScript 3 classes and interfaces to TypeScript definitions (d.ts files)",
   "main": "index.js",
   "bin": {

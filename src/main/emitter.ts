@@ -442,7 +442,6 @@ function emitClassField(node:Node, again:boolean = false):boolean {
         catchup(mods.start);
 		if (data.options.defsOnly
 			&& (mods.findChild(NodeKind.MODIFIER, 'private')
-				|| mods.findChild(NodeKind.MODIFIER, 'protected')
 				|| mods.findChild(NodeKind.MODIFIER, 'internal')))
 		{
 			return false;
