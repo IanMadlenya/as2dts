@@ -4,8 +4,9 @@ import AS3Parser = require('./parser');
 import emitter = require('./emitter');
 import fs = require('fs');
 import path = require('path');
+import child_process = require('child_process');
 
-require('fs-extended')
+require('fs-extended');
 
 
 var rimraf = require('rimraf');
@@ -31,7 +32,23 @@ function readdir(dir: string, prefix = ''): string[] {
 }
 
 function displayHelp() {
-    console.log('usage: as2dts [--defs-only] <sourceDir> <outputDir>');
+    console.log('usage: as2dts [--defs-only] [--out-name <name>] <sourceDir> <outputDir>');
+}
+
+function tsc(...args) {
+    var cmd = process.cwd().indexOf('/') < 0 ? 'tsc.cmd' : 'tsc';
+    var result = child_process.spawnSync(
+        cmd,
+        args,
+        {
+            cwd: process.cwd(),
+            env: process.env,
+            stdio: 'inherit'
+        }
+    );
+    if (result.error)
+        throw result.error;
+    return result;
 }
 
 export function run() {
@@ -42,12 +59,22 @@ export function run() {
     }
 	
 	var iArg:number = 2;
-	
-	var defsOnly:boolean = false;
-	if (process.argv[iArg] === '--defs-only')
-		defsOnly = true, iArg++;
-	
-    if (process.argv.length - iArg != 2) {
+    var defsOnly:boolean = false;
+    var outputName = 'out';
+
+    while (true)
+    {
+        var option = process.argv[iArg];
+        if (option === '--defs-only')
+            defsOnly = true;
+        else if (option === '--out-name')
+            outputName = process.argv[++iArg];
+        else
+            break;
+        iArg++;
+    }
+
+    if (process.argv.length - iArg < 2) {
 		displayHelp();
         process.exit(1);
     }
@@ -80,4 +107,22 @@ export function run() {
         (<any>fs).createFileSync(path.resolve(outputDir, file.replace(/.as$/, '.ts')), emitter.emit(ast, content, {defsOnly: defsOnly}));
         number ++;
     });
+
+    if (defsOnly)
+    {
+        (fs as any).createFileSync(
+            path.join(outputDir, 'tsconfig.json'),
+            `{
+                "compilerOptions": {
+                    "noImplicitAny": true,
+                    "module": "system",
+                    "declaration": true,
+                    "target": "es6",
+                    "outFile": "${outputName}.js"
+                },
+                "exclude": ["${outputName}.d.ts", "${outputName}.js"]
+            }`
+        );
+        tsc('-d', '-p', outputDir);
+    }
 }
