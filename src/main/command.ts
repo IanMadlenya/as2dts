@@ -5,12 +5,8 @@ import emitter = require('./emitter');
 import fs = require('fs');
 import path = require('path');
 import child_process = require('child_process');
-
-require('fs-extended');
-
-
-var rimraf = require('rimraf');
-
+import fs_extra = require('fs-extra');
+import rimraf = require('rimraf');
 
 function flatten<T>(arr: any): T[] {
   return arr.reduce(function (result: T[], val: any) {
@@ -35,8 +31,9 @@ function displayHelp() {
     console.log('usage: as2dts [--defs-only] [--out-name <name>] <sourceDir> <outputDir>');
 }
 
-function tsc(...args) {
+function tsc(...args:string[]) {
     var cmd = process.cwd().indexOf('/') < 0 ? 'tsc.cmd' : 'tsc';
+    cmd = path.join(path.dirname(process.argv[1]), '../node_modules/.bin/', cmd);
     var result = child_process.spawnSync(
         cmd,
         args,

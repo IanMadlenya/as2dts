@@ -1,0 +1,17 @@
+{
+	"compilerOptions": {
+		"noImplicitAny": true,
+		"target": "es6",
+		"module": "commonjs",
+		"forceConsistentCasingInFileNames": true,
+		"outDir": "lib"
+	},
+	"sourceType": "module",
+	"files": [
+		"src/declarations/index.d.ts",
+		"src/main/parser.ts",
+		"src/main/emitter.ts",
+		"src/main/command.ts"
+	],
+	"compileOnSave": false
+}

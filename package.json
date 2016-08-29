@@ -1,6 +1,6 @@
 {
   "name": "as2dts",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "A command line tool that converts ActionScript 3 classes and interfaces to TypeScript definitions (d.ts files)",
   "main": "index.js",
   "bin": {
@@ -11,8 +11,8 @@
     "test": "node test/runner generate && node test/runner compare",
     "generate": "node test/runner generate",
     "accept": "node test/runner accept",
-    "compile": "tsc --module commonjs --outDir lib --target es6 src/declarations/node.d.ts src/main/parser.ts src/main/emitter.ts src/main/command.ts",
-    "watch": "tsc --module commonjs --outDir lib --target es6 --watch src/declarations/node.d.ts src/main/parser.ts src/main/emitter.ts src/main/command.ts"
+    "compile": "tsc",
+    "watch": "tsc --watch"
   },
   "keywords": [
     "actionscript",
