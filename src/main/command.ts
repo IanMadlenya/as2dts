@@ -2,11 +2,9 @@
 
 import AS3Parser = require('./parser');
 import emitter = require('./emitter');
-import fs = require('fs');
+import fs = require('fs-extra');
 import path = require('path');
 import child_process = require('child_process');
-import fs_extra = require('fs-extra');
-import rimraf = require('rimraf');
 
 function flatten<T>(arr: any): T[] {
   return arr.reduce(function (result: T[], val: any) {
@@ -86,7 +84,7 @@ export function run() {
         if (!fs.statSync(outputDir).isDirectory()) {
             throw new Error('invalid ouput dir');
         }
-        rimraf.sync(outputDir);
+        fs.removeSync(outputDir);
     }
     fs.mkdirSync(outputDir);
     
@@ -101,13 +99,13 @@ export function run() {
         var ast = parser.buildAst(path.basename(file), content);
 		//console.log(JSON.stringify(ast,null,3));
         //console.log('emitting');
-        (<any>fs).createFileSync(path.resolve(outputDir, file.replace(/.as$/, '.ts')), emitter.emit(ast, content, {defsOnly: defsOnly}));
+        fs.outputFileSync(path.resolve(outputDir, file.replace(/.as$/, '.ts')), emitter.emit(ast, content, {defsOnly: defsOnly}));
         number ++;
     });
 
     if (defsOnly)
     {
-        (fs as any).createFileSync(
+        fs.outputFileSync(
             path.join(outputDir, 'tsconfig.json'),
             `{
                 "compilerOptions": {
