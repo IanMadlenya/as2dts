@@ -43,7 +43,7 @@ function tsc(...args:string[]) {
         '../../.bin/'
     ])
     {
-        cmdPath = path.join(path.dirname(process.argv[1]), '../node_modules/.bin/', cmd);
+        cmdPath = path.join(path.dirname(process.argv[1]), subpath, cmd);
         if (fs.existsSync(cmdPath))
             break;
     }
