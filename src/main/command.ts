@@ -5,6 +5,7 @@ import emitter = require('./emitter');
 import fs = require('fs-extra');
 import path = require('path');
 import child_process = require('child_process');
+import ts = require('typescript');
 
 function flatten<T>(arr: any): T[] {
   return arr.reduce(function (result: T[], val: any) {
@@ -18,49 +19,15 @@ function flatten<T>(arr: any): T[] {
 }
 
 function readdir(dir: string, prefix = ''): string[] {
-    return flatten<string>(fs.readdirSync(dir).map(function (file) {
+    return flatten<string>(fs.readdirSync(dir).map(function (file:string) {
         var fileName = path.join(prefix, file);
         var filePath = path.join(dir, file);
-        return fs.statSync(filePath).isDirectory() ? <any> readdir(filePath, fileName) : <any> fileName;
+        return fs.statSync(filePath).isDirectory() ? readdir(filePath, fileName) : fileName;
     }));
 }
 
 function displayHelp() {
     console.log('usage: as2dts [--defs-only] [--out-name <name>] <sourceDir> <outputDir>');
-}
-
-function tsc(...args:string[]) {
-    var cmd = process.cwd().indexOf('/') < 0 ? 'tsc.cmd' : 'tsc';
-    var cmdPath:string = null;
-
-    // BEGIN HACK
-    // process.argv[1] could be in node_modules/as2dts/bin/as2dts or node_modules/.bin/as2dts
-    // check for node_modules/as2dts/node_modules/.bin/tsc[.cmd] or node_modules/.bin/tsc[.cmd]
-    for (let subpath of [
-        '../node_modules/.bin/',
-        '../as2dts/node_modules/.bin/',
-        './',
-        '../../.bin/'
-    ])
-    {
-        cmdPath = path.join(path.dirname(process.argv[1]), subpath, cmd);
-        if (fs.existsSync(cmdPath))
-            break;
-    }
-    // END HACK
-
-    var result = child_process.spawnSync(
-        cmdPath,
-        args,
-        {
-            cwd: process.cwd(),
-            env: process.env,
-            stdio: 'inherit'
-        }
-    );
-    if (result.error)
-        throw result.error;
-    return result;
 }
 
 export function run() {
@@ -103,9 +70,10 @@ export function run() {
         }
         fs.removeSync(outputDir);
     }
-    fs.mkdirSync(outputDir);
+    fs.mkdirpSync(outputDir);
     
     var files = readdir(sourceDir).filter(file => /.as$/.test(file));
+    var tsFiles:string[] = [];
     var number = 0;
     var length = files.length;
     files.forEach(function (file) {
@@ -116,25 +84,39 @@ export function run() {
         var ast = parser.buildAst(path.basename(file), content);
 		//console.log(JSON.stringify(ast,null,3));
         //console.log('emitting');
-        fs.outputFileSync(path.resolve(outputDir, file.replace(/.as$/, '.ts')), emitter.emit(ast, content, {defsOnly: defsOnly}));
+        var tsFile = path.resolve(outputDir, file.replace(/.as$/, '.ts'));
+        tsFiles.push(tsFile);
+        fs.outputFileSync(tsFile, emitter.emit(ast, content, {defsOnly: defsOnly}));
         number ++;
     });
 
     if (defsOnly)
     {
-        fs.outputFileSync(
-            path.join(outputDir, 'tsconfig.json'),
-            `{
-                "compilerOptions": {
-                    "noImplicitAny": true,
-                    "module": "system",
-                    "declaration": true,
-                    "target": "es6",
-                    "outFile": "${outputName}.js"
-                },
-                "exclude": ["${outputName}.d.ts", "${outputName}.js"]
-            }`
+        compile(
+            tsFiles,
+            {
+                "noImplicitAny": true,
+                "module": ts.ModuleKind.System,
+                "declaration": true,
+                "target": ts.ScriptTarget.ES6,
+                "outFile": path.resolve(outputDir, outputName + '.js')
+            }
         );
-        tsc('-d', '-p', outputDir);
     }
+}
+
+function compile(fileNames: string[], options: ts.CompilerOptions): void {
+    let program = ts.createProgram(fileNames, options);
+    let emitResult = program.emit();
+
+    let allDiagnostics = ts.getPreEmitDiagnostics(program).concat(emitResult.diagnostics);
+
+    allDiagnostics.forEach(diagnostic => {
+        let { line, character } = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start);
+        let message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
+        console.log(`${diagnostic.file.fileName} (${line + 1},${character + 1}): ${message}`);
+    });
+
+    if (emitResult.emitSkipped)
+        console.log("Failed to create .d.ts file.");
 }
