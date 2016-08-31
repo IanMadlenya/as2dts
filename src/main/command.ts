@@ -31,9 +31,26 @@ function displayHelp() {
 
 function tsc(...args:string[]) {
     var cmd = process.cwd().indexOf('/') < 0 ? 'tsc.cmd' : 'tsc';
-    cmd = path.join(path.dirname(process.argv[1]), '../node_modules/.bin/', cmd);
+    var cmdPath:string = null;
+
+    // BEGIN HACK
+    // process.argv[1] could be in node_modules/as2dts/bin/as2dts or node_modules/.bin/as2dts
+    // check for node_modules/as2dts/node_modules/.bin/tsc[.cmd] or node_modules/.bin/tsc[.cmd]
+    for (let subpath of [
+        '../node_modules/.bin/',
+        '../as2dts/node_modules/.bin/',
+        './',
+        '../../.bin/'
+    ])
+    {
+        cmdPath = path.join(path.dirname(process.argv[1]), '../node_modules/.bin/', cmd);
+        if (fs.existsSync(cmdPath))
+            break;
+    }
+    // END HACK
+
     var result = child_process.spawnSync(
-        cmd,
+        cmdPath,
         args,
         {
             cwd: process.cwd(),
